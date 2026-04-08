@@ -4,6 +4,12 @@ Sensor0: 'db5a7d0a6461'
 (gpio 17)
 Sensor1: '8490710a6461'
 
+Simulation mode:
+- `config.json` now defaults to `"simulation_mode": true`
+- run `python3 main.py` on a normal machine to get the real UI backed by two fake sensors: `sim_wort` and `sim_jacket`
+- set `"simulation_mode": false` to switch back to Raspberry Pi GPIO / 1-wire hardware
+- tweak the values under `"simulation"` in `config.json` to change how quickly the simulated brewery heats and cools
+
 1. Clone repo in to `~/`
 ```sh
 cd ~
