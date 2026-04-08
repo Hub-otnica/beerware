@@ -10,6 +10,11 @@ Simulation mode:
 - set `"simulation_mode": false` to switch back to Raspberry Pi GPIO / 1-wire hardware
 - tweak the values under `"simulation"` in `config.json` to change how quickly the simulated brewery heats and cools
 
+Control mode:
+- keep existing thermostat control with `"control_mode": "on_off"`
+- enable PID heater control with `"control_mode": "pid"`
+- tune PID values under `"pid"` in `config.json` (`kp`, `ki`, `kd`, `window_seconds`, integral clamp)
+
 1. Clone repo in to `~/`
 ```sh
 cd ~

@@ -3,6 +3,7 @@
     "screen_height": 600,
     "default_temp": 25.0,
     "simulation_mode": true,
+    "control_mode": "on_off",
     "heater_pins": [18, 10],
     "primary_sensor_id": "sim_wort",
     "sensor_labels": {
@@ -23,5 +24,13 @@
         "wort_sensor_lag": 0.18,
         "jacket_sensor_lag": 0.35,
         "noise_amplitude": 0.04
+    },
+    "pid": {
+        "kp": 0.7,
+        "ki": 0.03,
+        "kd": 0.12,
+        "window_seconds": 10.0,
+        "integral_min": -20.0,
+        "integral_max": 20.0
     }
 }
