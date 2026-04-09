@@ -3,11 +3,15 @@
     "screen_height": 600,
     "default_temp": 25.0,
     "simulation_mode": true,
-    "control_mode": "on_off",
-    "heater_pins": [18, 10],
+    "control_mode": "pid",
+    "heater_pins": [
+        18,
+        10
+    ],
     "primary_sensor_id": "sim_wort",
+    "sensor_offsets": {},
     "sensor_labels": {
-        "sim_wort": "Wort",
+        "sim_wort": "Kettle",
         "sim_jacket": "Jacket",
         "db5a7d0a6461": "Probe 1",
         "8490710a6461": "Probe 2"
@@ -26,11 +30,11 @@
         "noise_amplitude": 0.04
     },
     "pid": {
-        "kp": 0.7,
-        "ki": 0.03,
-        "kd": 0.12,
-        "window_seconds": 10.0,
-        "integral_min": -20.0,
-        "integral_max": 20.0
+        "kp": 0.15,
+        "ki": 0.005,
+        "kd": 0.04,
+        "window_seconds": 2.0,
+        "integral_min": -10.0,
+        "integral_max": 10.0
     }
 }

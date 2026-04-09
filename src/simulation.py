@@ -2,7 +2,7 @@ import random
 import threading
 import time
 from dataclasses import dataclass
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 
 @dataclass(frozen=True)
@@ -13,8 +13,8 @@ class SimulatedSensor:
 
 class SimulatedHeating:
     def __init__(self, update_interval=3.0, buffer_interval=0.3):
-        self.heater0 = False
-        self.heater1 = False
+        self._heater0 = False
+        self._heater1 = False
         self.heater0_output = False
         self.heater1_output = False
         self.swap_interval = update_interval
@@ -22,6 +22,33 @@ class SimulatedHeating:
         self._running = False
         self._thread = None
         self._lock = threading.Lock()
+        self._state_changed = threading.Event()
+
+    @property
+    def heater0(self):
+        with self._lock:
+            return self._heater0
+
+    @heater0.setter
+    def heater0(self, enabled):
+        with self._lock:
+            self._heater0 = enabled
+        self._state_changed.set()
+
+    @property
+    def heater1(self):
+        with self._lock:
+            return self._heater1
+
+    @heater1.setter
+    def heater1(self, enabled):
+        with self._lock:
+            self._heater1 = enabled
+        self._state_changed.set()
+
+    def _get_requested_states(self):
+        with self._lock:
+            return self._heater0, self._heater1
 
     def _set_outputs(self, heater0_output, heater1_output):
         with self._lock:
@@ -36,9 +63,17 @@ class SimulatedHeating:
         toggle = False
         try:
             while self._running:
-                if self.heater0 and self.heater1:
+                heater0, heater1 = self._get_requested_states()
+
+                if heater0 and heater1:
                     self._set_outputs(False, False)
-                    time.sleep(self.swap_buffer_interval)
+                    if self._state_changed.wait(self.swap_buffer_interval):
+                        self._state_changed.clear()
+                        continue
+
+                    heater0, heater1 = self._get_requested_states()
+                    if not (heater0 and heater1):
+                        continue
 
                     toggle = not toggle
                     if toggle:
@@ -46,10 +81,12 @@ class SimulatedHeating:
                     else:
                         self._set_outputs(False, True)
 
-                    time.sleep(self.swap_interval)
+                    if self._state_changed.wait(self.swap_interval):
+                        self._state_changed.clear()
                 else:
-                    self._set_outputs(self.heater0, self.heater1)
-                    time.sleep(self.swap_interval)
+                    self._set_outputs(heater0, heater1)
+                    self._state_changed.wait()
+                    self._state_changed.clear()
         finally:
             self._set_outputs(False, False)
 
@@ -61,6 +98,7 @@ class SimulatedHeating:
 
     def stop(self):
         self._running = False
+        self._state_changed.set()
         if self._thread is not None:
             self._thread.join()
             self._thread = None
@@ -151,3 +189,6 @@ class SimulatedThermometers:
 
     def get_temperature(self, sensor_id):
         return self.temperatures.get(sensor_id, None)
+
+    def get_sensor_ids(self) -> List[str]:
+        return list(self.temperatures.keys())

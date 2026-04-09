@@ -24,6 +24,22 @@ def test_simulated_heating_single_heater_output():
         heating.stop()
 
 
+def test_simulated_heating_single_heater_does_not_wait_for_swap_interval():
+    heating = SimulatedHeating(update_interval=3.0, buffer_interval=0.01)
+    heating.start()
+    try:
+        heating.heater0 = True
+        end_time = time.time() + 0.2
+        while time.time() < end_time:
+            if heating.get_output_states() == (True, False):
+                break
+            time.sleep(0.01)
+
+        assert heating.get_output_states() == (True, False)
+    finally:
+        heating.stop()
+
+
 def test_simulated_heating_alternates_when_both_requested():
     heating = SimulatedHeating(update_interval=0.02, buffer_interval=0.005)
     heating.heater0 = True
@@ -40,6 +56,33 @@ def test_simulated_heating_alternates_when_both_requested():
         assert (True, False) in observed_states
         assert (False, True) in observed_states
         assert (True, True) not in observed_states
+    finally:
+        heating.stop()
+
+
+def test_simulated_heating_dual_request_interrupts_to_single_output():
+    heating = SimulatedHeating(update_interval=1.0, buffer_interval=0.01)
+    heating.heater0 = True
+    heating.heater1 = True
+    heating.start()
+
+    try:
+        end_time = time.time() + 0.3
+        while time.time() < end_time:
+            outputs = heating.get_output_states()
+            if outputs in {(True, False), (False, True)}:
+                break
+            time.sleep(0.01)
+
+        heating.heater1 = False
+
+        end_time = time.time() + 0.2
+        while time.time() < end_time:
+            if heating.get_output_states() == (True, False):
+                break
+            time.sleep(0.01)
+
+        assert heating.get_output_states() == (True, False)
     finally:
         heating.stop()
 

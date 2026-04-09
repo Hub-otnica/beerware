@@ -3,56 +3,88 @@ import threading
 import time
 
 class Heating:
-    heater0 = False
-    heater1 = False
-    heater0_relay = None
-    heater1_relay = None
-
     def __init__(self, heater0_pin, heater1_pin, update_interval=20.0, buffer_interval=0.3):
+        self._heater0 = False
+        self._heater1 = False
         self.heater0_relay = OutputDevice(heater0_pin, active_high=True, initial_value=False)
         self.heater1_relay = OutputDevice(heater1_pin, active_high=True, initial_value=False)
         self.swap_interval = update_interval
         self.swap_buffer_interval = buffer_interval
         self._running = False
         self._thread = None
+        self._lock = threading.Lock()
+        self._state_changed = threading.Event()
+
+    @property
+    def heater0(self):
+        with self._lock:
+            return self._heater0
+
+    @heater0.setter
+    def heater0(self, enabled):
+        with self._lock:
+            self._heater0 = enabled
+        self._state_changed.set()
+
+    @property
+    def heater1(self):
+        with self._lock:
+            return self._heater1
+
+    @heater1.setter
+    def heater1(self, enabled):
+        with self._lock:
+            self._heater1 = enabled
+        self._state_changed.set()
+
+    def _get_requested_states(self):
+        with self._lock:
+            return self._heater0, self._heater1
+
+    def _apply_outputs(self, heater0_output, heater1_output):
+        if not heater0_output:
+            self.heater0_relay.off()
+
+        if not heater1_output:
+            self.heater1_relay.off()
+
+        if heater0_output:
+            self.heater0_relay.on()
+
+        if heater1_output:
+            self.heater1_relay.on()
 
     def _run(self):
         toggle = False
         try:
             while self._running:
-                if self.heater0 and self.heater1:
+                heater0, heater1 = self._get_requested_states()
+
+                if heater0 and heater1:
                     # Safety off before toggling
-                    self.heater0_relay.off()
-                    self.heater1_relay.off()
-                    time.sleep(self.swap_buffer_interval)
+                    self._apply_outputs(False, False)
+                    if self._state_changed.wait(self.swap_buffer_interval):
+                        self._state_changed.clear()
+                        continue
+
+                    heater0, heater1 = self._get_requested_states()
+                    if not (heater0 and heater1):
+                        continue
 
                     toggle = not toggle
                     if toggle:
-                        self.heater0_relay.on()
-                        self.heater1_relay.off()
+                        self._apply_outputs(True, False)
                     else:
-                        self.heater0_relay.off()
-                        self.heater1_relay.on()
+                        self._apply_outputs(False, True)
 
-                    time.sleep(self.swap_interval)
+                    if self._state_changed.wait(self.swap_interval):
+                        self._state_changed.clear()
                 else:
-                    # Single heater or none
-                    if not self.heater0:
-                        self.heater0_relay.off()
-
-                    if not self.heater1:
-                        self.heater1_relay.off()
-
-                    if self.heater0:
-                        self.heater0_relay.on()
-
-                    if self.heater1:
-                        self.heater1_relay.on()
-
-                    time.sleep(self.swap_interval)
+                    self._apply_outputs(heater0, heater1)
+                    self._state_changed.wait()
+                    self._state_changed.clear()
         finally:
-            self.heater0_relay.off()
-            self.heater1_relay.off()
+            self._apply_outputs(False, False)
 
     def start(self):
         if not self._running:
@@ -62,7 +94,8 @@ class Heating:
 
     def stop(self):
         self._running = False
+        self._state_changed.set()
         if self._thread is not None:
             self._thread.join()
-        self.heater0_relay.off()
-        self.heater1_relay.off()
+            self._thread = None
+        self._apply_outputs(False, False)
